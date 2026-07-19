@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../NetCats.Poc07.Interop/NetCats.Poc07.Interop.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../NetCats.Poc04.Cancellation/NetCats.Poc04.Cancellation.csproj" />
+  </ItemGroup>
+</Project>

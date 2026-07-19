@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../PurrfectSeat.Application/PurrfectSeat.Application.csproj" />
+    <ProjectReference Include="../PurrfectSeat.Contracts/PurrfectSeat.Contracts.csproj" />
+    <ProjectReference Include="../PurrfectSeat.Domain/PurrfectSeat.Domain.csproj" />
+  </ItemGroup>
+</Project>

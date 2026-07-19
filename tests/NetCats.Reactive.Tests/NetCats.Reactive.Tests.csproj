@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../src/NetCats.Reactive/NetCats.Reactive.csproj" />
+  </ItemGroup>
+</Project>

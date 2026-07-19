@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../NetCats.Poc02.Latent/NetCats.Poc02.Latent.csproj" />
+  </ItemGroup>
+</Project>

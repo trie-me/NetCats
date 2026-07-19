@@ -1,0 +1,12 @@
+<Solution>
+  <Project Path="src/PurrfectSeat.Domain/PurrfectSeat.Domain.csproj" />
+  <Project Path="src/PurrfectSeat.Contracts/PurrfectSeat.Contracts.csproj" />
+  <Project Path="src/PurrfectSeat.Application/PurrfectSeat.Application.csproj" />
+  <Project Path="src/PurrfectSeat.Infrastructure/PurrfectSeat.Infrastructure.csproj" />
+  <Project Path="src/PurrfectSeat.Scenarios/PurrfectSeat.Scenarios.csproj" />
+  <Project Path="src/PurrfectSeat.Api/PurrfectSeat.Api.csproj" />
+  <Project Path="tests/PurrfectSeat.Domain.Tests/PurrfectSeat.Domain.Tests.csproj" />
+  <Project Path="tests/PurrfectSeat.Application.Tests/PurrfectSeat.Application.Tests.csproj" />
+  <Project Path="tests/PurrfectSeat.Api.Tests/PurrfectSeat.Api.Tests.csproj" />
+  <Project Path="tests/PurrfectSeat.Scenario.Tests/PurrfectSeat.Scenario.Tests.csproj" />
+</Solution>

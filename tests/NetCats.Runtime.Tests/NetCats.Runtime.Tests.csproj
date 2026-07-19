@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../src/NetCats.Runtime/NetCats.Runtime.csproj" />
+    <ProjectReference Include="../../src/NetCats.Testing/NetCats.Testing.csproj" />
+  </ItemGroup>
+</Project>

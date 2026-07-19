@@ -1,0 +1,13 @@
+<Solution>
+  <Project Path="pocs/NetCats.Poc01.GeneratedKinds/NetCats.Poc01.GeneratedKinds.csproj" />
+  <Project Path="pocs/NetCats.Poc01.Generator/NetCats.Poc01.Generator.csproj" />
+  <Project Path="pocs/NetCats.Poc02.Latent/NetCats.Poc02.Latent.csproj" />
+  <Project Path="pocs/NetCats.Poc03.Interpreter/NetCats.Poc03.Interpreter.csproj" />
+  <Project Path="pocs/NetCats.Poc04.Cancellation/NetCats.Poc04.Cancellation.csproj" />
+  <Project Path="pocs/NetCats.Poc05.Fibers/NetCats.Poc05.Fibers.csproj" />
+  <Project Path="pocs/NetCats.Poc06.Scheduling/NetCats.Poc06.Scheduling.csproj" />
+  <Project Path="pocs/NetCats.Poc07.Interop/NetCats.Poc07.Interop.csproj" />
+  <Project Path="pocs/NetCats.Poc08.Laws/NetCats.Poc08.Laws.csproj" />
+  <Project Path="pocs/NetCats.Poc09.Performance/NetCats.Poc09.Performance.csproj" />
+  <Project Path="pocs/NetCats.Pocs.Tests/NetCats.Pocs.Tests.csproj" />
+</Solution>

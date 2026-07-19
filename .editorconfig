@@ -1,0 +1,21 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+
+[*.cs]
+csharp_prefer_braces = true:error
+
+dotnet_naming_rule.private_fields_lower_camel.severity = error
+dotnet_naming_rule.private_fields_lower_camel.symbols = private_fields
+dotnet_naming_rule.private_fields_lower_camel.style = lower_camel
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_style.lower_camel.required_prefix =
+dotnet_naming_style.lower_camel.capitalization = camel_case

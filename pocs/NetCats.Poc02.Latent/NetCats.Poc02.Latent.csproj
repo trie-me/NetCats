@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../NetCats.Poc01.GeneratedKinds/NetCats.Poc01.GeneratedKinds.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+
+# IDE and user state
+.vs/
+.idea/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# .NET build output
+[Bb]in/
+[Oo]bj/
+[Aa]rtifacts/
+TestResults/
+BenchmarkDotNet.Artifacts/
+*.binlog
+
+# Packages and symbols
+*.nupkg
+*.snupkg
+packages/
+
+# Test and coverage output
+*.trx
+coverage/
+coverage.*
+
+# Local tooling and temporary files
+.dotnet/
+*.tmp
+*.bak
+*.swp
+*~

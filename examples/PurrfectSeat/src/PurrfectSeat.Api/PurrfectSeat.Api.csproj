@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="../PurrfectSeat.Domain/PurrfectSeat.Domain.csproj" />
+    <ProjectReference Include="../PurrfectSeat.Contracts/PurrfectSeat.Contracts.csproj" />
+    <ProjectReference Include="../PurrfectSeat.Application/PurrfectSeat.Application.csproj" />
+    <ProjectReference Include="../PurrfectSeat.Infrastructure/PurrfectSeat.Infrastructure.csproj" />
+    <ProjectReference Include="../PurrfectSeat.Scenarios/PurrfectSeat.Scenarios.csproj" />
+    <ProjectReference Include="../../../../src/NetCats.Runtime/NetCats.Runtime.csproj" />
+  </ItemGroup>
+</Project>
