@@ -89,6 +89,8 @@ just examples-run
 
 See the [example README](examples/PurrfectSeat/README.md) and [implementation specification](docs/05-purrfectseat-example-implementation.md).
 
+For a static hackathon deployment with no backend, [PurrfectSeat.Wasm](examples/PurrfectSeat/src/PurrfectSeat.Wasm/README.md) runs the same domain and application services in browser WebAssembly. It uses an API-shaped in-process bridge because a browser cannot host a network listener. Each browser session has its own in-memory catalogue; use the API host for a shared multi-user demonstration.
+
 ## Current status
 
 The production solution is a deliberately promoted first slice, not a claim that every planned Cats Effect-style API is complete. It currently includes cold iterative effects, error recovery, cancellation masking, protected finalization, logical fibers and scopes, an initial generator, Task/Rx adapters, and deterministic `TimeProvider` support.

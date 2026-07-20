@@ -15,6 +15,12 @@ Useful commands:
 ```shell
 just examples-build
 just examples-test
+just examples-wasm-run
+just examples-wasm-publish
 ```
 
 The implementation deliberately keeps the domain free from NetCats, ASP.NET Core, telemetry, and persistence dependencies. The repository persists `PerformanceSnapshot` values and always calls `Performance.Hydrate` when a unit of work loads an aggregate; it never holds a mutable aggregate as its backing store.
+
+## Hackathon deployment
+
+The standard API host supports the shared, multi-user demo. For a no-backend static deployment, use [PurrfectSeat.Wasm](src/PurrfectSeat.Wasm/README.md). It runs the same booking application in browser WebAssembly through an API-shaped bridge. Each browser receives its own in-memory demo state, which makes it ideal for a reliable hackathon demonstration but not a replacement for the shared API host.

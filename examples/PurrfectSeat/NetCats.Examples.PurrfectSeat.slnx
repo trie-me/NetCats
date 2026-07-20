@@ -5,6 +5,7 @@
   <Project Path="src/PurrfectSeat.Infrastructure/PurrfectSeat.Infrastructure.csproj" />
   <Project Path="src/PurrfectSeat.Scenarios/PurrfectSeat.Scenarios.csproj" />
   <Project Path="src/PurrfectSeat.Api/PurrfectSeat.Api.csproj" />
+  <Project Path="src/PurrfectSeat.Wasm/PurrfectSeat.Wasm.csproj" />
   <Project Path="tests/PurrfectSeat.Domain.Tests/PurrfectSeat.Domain.Tests.csproj" />
   <Project Path="tests/PurrfectSeat.Application.Tests/PurrfectSeat.Application.Tests.csproj" />
   <Project Path="tests/PurrfectSeat.Api.Tests/PurrfectSeat.Api.Tests.csproj" />

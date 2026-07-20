@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <WasmMainJSPath>wwwroot/main.js</WasmMainJSPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../PurrfectSeat.Domain/PurrfectSeat.Domain.csproj" />
+    <ProjectReference Include="../PurrfectSeat.Contracts/PurrfectSeat.Contracts.csproj" />
+    <ProjectReference Include="../PurrfectSeat.Application/PurrfectSeat.Application.csproj" />
+    <ProjectReference Include="../PurrfectSeat.Infrastructure/PurrfectSeat.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="../PurrfectSeat.Api/wwwroot/css/site.css" Link="wwwroot/css/site.css" />
+    <Content Include="../PurrfectSeat.Api/wwwroot/css/box-office.css" Link="wwwroot/css/box-office.css" />
+    <Content Include="../PurrfectSeat.Api/wwwroot/js/api-client.js" Link="wwwroot/js/api-client.js" />
+    <Content Include="../PurrfectSeat.Api/wwwroot/js/box-office.js" Link="wwwroot/js/box-office.js" />
+  </ItemGroup>
+</Project>

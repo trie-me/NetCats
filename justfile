@@ -20,4 +20,13 @@ examples-test:
 examples-run:
     ASPNETCORE_ENVIRONMENT=Demo dotnet run --project examples/PurrfectSeat/src/PurrfectSeat.Api/PurrfectSeat.Api.csproj --no-launch-profile
 
-check: build test examples-build examples-test
+examples-wasm-build:
+    dotnet build examples/PurrfectSeat/src/PurrfectSeat.Wasm/PurrfectSeat.Wasm.csproj --disable-build-servers --verbosity minimal -m:1
+
+examples-wasm-run:
+    dotnet run --project examples/PurrfectSeat/src/PurrfectSeat.Wasm/PurrfectSeat.Wasm.csproj --no-launch-profile
+
+examples-wasm-publish:
+    dotnet publish examples/PurrfectSeat/src/PurrfectSeat.Wasm/PurrfectSeat.Wasm.csproj --configuration Release --disable-build-servers --verbosity minimal -m:1
+
+check: build test examples-build examples-test examples-wasm-build

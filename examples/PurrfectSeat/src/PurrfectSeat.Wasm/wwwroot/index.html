@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PurrfectSeat.com Box Office — WASM demo</title>
+  <link rel="stylesheet" href="/css/site.css">
+  <link rel="stylesheet" href="/css/box-office.css">
+</head>
+<body>
+  <header><a class="brand" href="/">PurrfectSeat.com</a><span>Find the purrfect seat before another cat does.</span><span>WebAssembly demo</span></header>
+  <main>
+    <section class="hero"><p class="eyebrow">PurrfectSeat.com Box Office</p><h1 id="performance-name">Loading the stage…</h1><p id="performance-time"></p><label class="showtime-picker">Choose a showtime <select id="performance-selector" aria-label="Choose a performance showtime"></select></label></section>
+    <div class="layout">
+      <section class="card"><h2>Stage</h2><p class="assist" id="connection">Starting the browser-hosted booking service…</p><div id="seat-map" class="seat-map" aria-live="polite"></div></section>
+      <aside class="card checkout"><h2>Your selection</h2><p id="selection">No seats selected. Don’t paws now.</p><p class="price" id="total">£0.00</p><button id="hold-button" disabled>Pounce on these seats</button><div id="hold-panel" hidden></div><p id="message" role="status"></p></aside>
+    </div>
+  </main>
+  <script type="module">
+    window.purrfectSeatWasmReady = import('./main.js').then(module => module.ready);
+    await window.purrfectSeatWasmReady;
+    await import('./js/box-office.js');
+  </script>
+</body>
+</html>
