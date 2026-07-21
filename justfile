@@ -42,6 +42,12 @@ examples-test-webgpu-enrollment:
     @test -n "${MUTUALGPU_PROVIDER_KEY:-}" || { echo "MUTUALGPU_PROVIDER_KEY is required." >&2; exit 2; }
     MUTUALGPU_API_URL="${MUTUALGPU_API_URL:-https://mutualgpu.com}" MUTUALGPU_PROVIDER_KEY="$MUTUALGPU_PROVIDER_KEY" MUTUALGPU_BROWSER_EXECUTABLE="${MUTUALGPU_BROWSER_EXECUTABLE:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node --test examples/MutualGPU/sdk/typescript/integration/browser-wss-enrollment.test.mjs
 
+# Executes a real Chromium fetch from the hosted Hugging Face Space to the public
+# API with credentials: include. Override MUTUALGPU_CORS_TEST_ORIGIN for another
+# explicitly allowed provider origin.
+examples-test-cross-origin-cors:
+    MUTUALGPU_API_URL="${MUTUALGPU_API_URL:-https://mutualgpu.com}" MUTUALGPU_CORS_TEST_ORIGIN="${MUTUALGPU_CORS_TEST_ORIGIN:-https://yosun-triposplat-webgpu-demo.static.hf.space}" MUTUALGPU_BROWSER_EXECUTABLE="${MUTUALGPU_BROWSER_EXECUTABLE:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node --test examples/MutualGPU/sdk/typescript/integration/browser-cross-origin-cors.test.mjs
+
 mutualgpu-dev-cert:
     dotnet dev-certs https --trust
 
