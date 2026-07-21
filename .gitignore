@@ -21,7 +21,8 @@ BenchmarkDotNet.Artifacts/
 # Packages and symbols
 *.nupkg
 *.snupkg
-packages/
+/packages/
+node_modules/
 
 # Test and coverage output
 *.trx
