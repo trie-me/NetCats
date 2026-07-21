@@ -34,6 +34,14 @@ mutualgpu-test:
     node --test examples/MutualGPU/tests/frontend/*.test.mjs
     npm test --prefix examples/MutualGPU/sdk/typescript
 
+# Executes the checked-in browser SDK integration module in real Chromium.
+# Provide MUTUALGPU_PROVIDER_KEY from the demo key file. The test directly uses
+# the SDK's provider enrollment mapping, but does not mint a key or open the
+# password-gated site enrollment flow.
+examples-test-webgpu-enrollment:
+    @test -n "${MUTUALGPU_PROVIDER_KEY:-}" || { echo "MUTUALGPU_PROVIDER_KEY is required." >&2; exit 2; }
+    MUTUALGPU_API_URL="${MUTUALGPU_API_URL:-https://mutualgpu.com}" MUTUALGPU_PROVIDER_KEY="$MUTUALGPU_PROVIDER_KEY" MUTUALGPU_BROWSER_EXECUTABLE="${MUTUALGPU_BROWSER_EXECUTABLE:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node --test examples/MutualGPU/sdk/typescript/integration/browser-wss-enrollment.test.mjs
+
 mutualgpu-dev-cert:
     dotnet dev-certs https --trust
 
