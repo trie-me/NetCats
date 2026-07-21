@@ -1,11 +1,12 @@
-# MutualGPU provider SDK
+# MutualGPU SDK
 
-The MutualGPU provider SDK lets Node.js and Chrome applications enroll an execution unit, receive assignments, execute provider-owned workloads, and publish results without constructing the provider protocol directly.
+The MutualGPU SDK lets browser requestors submit and track tasks, and lets Node.js and Chrome providers execute assignments without constructing the HTTP or provider protocols directly.
 
 These are the only supported consumer environments in the current preview:
 
 | Environment | Packages | Connection |
 | --- | --- | --- |
+| Browser requestor | `@mutualgpu/requestor-web` | Credentialed HTTPS fetch |
 | Node.js | `@mutualgpu/provider-core` and `@mutualgpu/provider-node` | Native HTTPS/HTTP2 gRPC |
 | Chrome | `@mutualgpu/provider-core` and `@mutualgpu/provider-web` | Binary Protobuf over secure WebSocket |
 
@@ -13,6 +14,7 @@ The current packages are repository-local preview packages. They are ECMAScript 
 
 ## Start here
 
+- [Requestor browser API](reference/requestor-api.md) — cookie bootstrap, endpoint methods, submissions, failures, and cross-origin requirements.
 - [Provider SDK usage guide](guides/mutualgpu-provider-sdk.md) — end-to-end enrollment, assignment, input, result, failure, reconnect, and shutdown workflow.
 - [Consumer API reference](reference/provider-api.md) — constructors, methods, task fields, state rules, errors, and environment differences.
 - [Enrollment schema reference](reference/enrollment-schema.md) — machine, capability, input, and output definitions with validation constraints.
