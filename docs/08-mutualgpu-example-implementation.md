@@ -39,7 +39,7 @@ MutualGPU should:
 - authenticate every provider SDK operation with one preshared key per execution unit;
 - enroll provider capabilities as dynamic, flat, validation-aware input contracts;
 - expose only capabilities that currently have at least one connected candidate node;
-- schedule queued work by requested T-shirt resource tier and FIFO age;
+- schedule queued work by requested CPU/GPU and memory minimums and FIFO age;
 - enforce exactly one running task per execution unit;
 - preserve logical tasks across assignment failures through immutable attempt history;
 - accept a required result ZIP and optional result material through one authenticated multipart upload;
@@ -71,7 +71,7 @@ Duplicate execution after process or connection failure is an accepted MVP trade
 
 ## Business premise
 
-Many WebGPU-capable devices are unused or underused. A MutualGPU execution unit enrolls the task handlers already installed on that node, describes each handler's inputs and outputs, and maintains one long-lived provider session. An anonymous requestor selects one currently available capability, supplies the generated inputs, chooses an available T-shirt tier, and submits a logical task.
+Many WebGPU-capable devices are unused or underused. A MutualGPU execution unit enrolls the task handlers already installed on that node, describes each handler's inputs and outputs, and maintains one long-lived provider session. An anonymous requestor selects one currently available capability, supplies the generated inputs, chooses an available CPU/GPU and memory profile, and submits a logical task.
 
 The distributor persists the task, selects an eligible connected node, and sends an assignment. The node explicitly accepts before work is considered running. Scalar input values travel in the control protocol; the image or another future complex payload travels through a scoped download URL. The node reports bounded progress, requests permission to upload near completion, uploads a ZIP plus optional artifacts, and reports completion only after the API has validated the result.
 
@@ -277,7 +277,7 @@ Labels, descriptions, help text, and display order do not make an execution cont
 
 ### Resource model
 
-MutualGPU uses one T-shirt size as the scheduling abstraction. CPU/GPU capacity and memory quantity are separate machine specifications used only to build an additional availability view.
+MutualGPU keeps a T-shirt size only as provider classification metadata. CPU/GPU capacity and memory quantity are the requestor-visible specifications used for availability and scheduling.
 
 ```csharp
 public enum ResourceTier
@@ -299,11 +299,11 @@ public sealed record MachineProfile(
     MachineSpecifications Specifications);
 ```
 
-An SDK accepts a concrete machine `Tier` plus specifications. A requestor chooses only `Automatic` or one available T-shirt tier. The request does not contain CPU/GPU and memory axes.
+An SDK accepts a concrete machine `Tier` as classification metadata plus CPU/GPU and memory specifications. The requestor does not see or choose the T-shirt classification. It chooses an available CPU/GPU tier and memory quantity from the resource matrix.
 
-For matching, an explicit T-shirt tier is a minimum: a higher-tier node may satisfy a lower-tier request. The server prefers the smallest adequate connected node so higher tiers remain available for tasks that need them. `Automatic` delegates the selection to the scheduler. Machine specifications never participate in matching.
+For matching, both selected specification dimensions are minimums: a node with an equal or higher CPU/GPU tier and at least the requested memory may satisfy the task. The server prefers the smallest adequate connected node so larger machines remain available for tasks that need them. Machine specifications are the request and scheduling contract.
 
-The requestor-facing capability catalogue contains only T-shirt tiers with at least one connected capable node. It reports connected and currently idle counts by tier for the primary selector. Separately, it aggregates the same counts by machine CPU/GPU tier and numeric memory GiB for the supplemental matrix. A busy tier may still accept queued work; a tier with no connected capable node is omitted. The catalogue never exposes exact GPU model, memory speed, or machine identity.
+The requestor-facing capability catalogue aggregates connected and currently idle counts by machine CPU/GPU tier and numeric memory GiB. A busy profile may still accept queued work; an impossible profile is hidden. The catalogue never exposes the enrollment T-shirt classification, exact GPU model, memory speed, or machine identity.
 
 ### Identifiers
 
@@ -1026,13 +1026,13 @@ The scheduler is task-driven:
 1. Pull queued tasks by highest requested allocation tier first.
 2. Within the same tier, pull oldest first.
 3. Check capability-compatible, connected, idle nodes.
-4. Filter nodes whose T-shirt tier satisfies the requested minimum.
-5. Prefer an exact T-shirt tier match.
+4. Filter nodes whose CPU/GPU tier and memory quantity satisfy both requested minimums.
+5. Prefer the smallest adequate CPU/GPU and memory profile.
 6. Otherwise choose the smallest adequate better node.
 7. Commit `Assigned`, create a UUIDv7 `AttemptId`, issue a `TaskHandle`, remove the queue marker, and send the assignment.
 8. Continue until providers are exhausted.
 
-`Automatic` is below explicit tiers and lets the server choose the smallest available candidate. Creation time is the FIFO key within one requested tier. This is a scheduling abstraction, not a hardware performance claim.
+Creation time is the FIFO key after resource fit. The coarse CPU/GPU tiers are scheduling abstractions, not hardware performance claims.
 
 A high-tier node may execute lower-tier work only after higher-tier tasks it can satisfy have been considered. No user-defined priority exists in MVP.
 
@@ -1087,7 +1087,7 @@ tasks.MapGet("/{taskId:guid}/result", MutualGpuEndpoints.GetTaskResult);
 GET /api/capabilities
 ```
 
-Returns only capabilities with a connected provider candidate. Each item includes the generated-form schema, output summary, connected/idle counts per schedulable T-shirt tier, and a separate CPU/GPU-tier-by-memory-GiB hardware availability matrix. It does not expose nodes or exact hardware identities.
+Returns only capabilities with a connected provider candidate. Each item includes the generated-form schema, output summary, and connected/idle counts for the CPU/GPU-tier-by-memory-GiB resource matrix. It does not expose enrollment classifications, nodes, or exact hardware identities.
 
 If all providers for a capability disconnect, that capability disappears from this endpoint while its persisted definition and existing tasks remain.
 
@@ -1100,7 +1100,7 @@ Content-Type: multipart/form-data
 
 Parts:
 
-- `submission`: JSON containing capability ID, capability contract hash, scalar values, requested T-shirt tier, and browser-generated UUIDv7 idempotency key;
+- `submission`: JSON containing capability ID, capability contract hash, scalar values, requested CPU/GPU tier and memory GiB, and browser-generated UUIDv7 idempotency key;
 - `image`: optional single PNG, JPEG, or WebP file when the capability declares an image input.
 
 The browser performs basic type, required-field, file-type, and image-dimension checks. The API is authoritative: it validates the capability is currently available, compares the submitted contract hash, validates flat values and declared constraints, decodes the image dimensions, and rejects images larger than 1024 by 1024.
@@ -1119,7 +1119,7 @@ The list returns all permanent tasks owned by the requestor cookie. Pagination i
 Task responses include:
 
 - task ID and capability display name;
-- submitted time and requested T-shirt tier;
+- submitted time and requested CPU/GPU and memory profile;
 - current logical status;
 - latest optional progress snapshot;
 - attempt count;
@@ -1177,7 +1177,7 @@ Use regular `fetch` for submissions and queries. Poll business task state rather
 3. Select a task type.
 4. Generate a flat form from the capability snapshot.
 5. Render the special image upload control when declared.
-6. Select `Automatic` or one currently available T-shirt tier.
+6. Select one available CPU/GPU and memory cell.
 7. Submit values and the optional image to the API.
 8. View the task in the single task list while polling status/progress.
 9. Optionally request reevaluation if a running task appears stuck.
@@ -1203,21 +1203,20 @@ Server validation remains authoritative. Presentation-only schema changes may up
 
 ### Resource selection
 
-Keep the single T-shirt selector as the task input and add a read-only availability-oriented x/y resource matrix:
+Use one selectable x/y resource matrix as the task's capacity input. Do not add a separate T-shirt selector:
 
 - x-axis: memory quantity in GiB, ordered from lowest to highest;
-- y-axis: compute CPU/GPU T-shirt tier, ordered from highest to lowest;
-- cell: connected and currently idle node counts advertising those specifications;
+- y-axis: compute CPU/GPU tier, ordered from highest to lowest;
+- cell: connected and currently idle node counts able to satisfy those minimum specifications;
 - hidden cell: no connected capable node;
-- zero-idle cell: clearly marked as waiting;
-- matrix cells: informational and never task selection controls;
-- `Automatic`: server selection in the primary T-shirt selector.
+- zero-idle cell: clearly marked as waiting but still selectable;
+- matrix cell selection: supplies the request's CPU/GPU tier and memory GiB.
 
 The display uses abstract tiers only and never names a provider or exact GPU. Refresh capability availability while the form is open; a submission can still lose availability between selection and commit and should return a typed conflict that prompts refresh.
 
 ### Task list
 
-One table/card collection contains all tasks. Display status, capability, requested T-shirt tier, age, latest optional phase/percentage/message, attempt count, and result actions. Completed and failed tasks remain permanently visible to the same cookie.
+One table/card collection contains all tasks. Display status, capability, requested CPU/GPU and memory profile, age, latest optional phase/percentage/message, attempt count, and result actions. Completed and failed tasks remain permanently visible to the same cookie.
 
 ### Fiber tree overlay
 
@@ -1449,7 +1448,7 @@ Use fixed UUID/time providers and deterministic fake sessions. Assert:
 
 - high-tier tasks are considered before lower-tier tasks;
 - FIFO holds within a tier;
-- exact T-shirt tier matches are preferred before higher-tier nodes;
+- the smallest adequate CPU/GPU and memory profile is preferred;
 - high-tier nodes fall back only after high-tier work is considered;
 - one pass assigns until providers are exhausted;
 - unmatched tasks roll into the next evaluation;
@@ -1480,7 +1479,7 @@ Test:
 - capability disappearance when the last provider disconnects;
 - generated flat controls and `allowedValues` selection;
 - one-image validation and preview;
-- T-shirt selection and read-only machine-spec matrix counts;
+- selectable CPU/GPU-by-memory matrix counts and waiting states;
 - task creation and idempotent resubmission;
 - combined task list and polling;
 - running progress, terminal failure, and completed state;
@@ -1499,7 +1498,7 @@ Full visual-regression infrastructure is not required initially.
 - Add the optional `NetCats.AspNetCore` bounded projection, snapshot endpoint, SSE endpoint, and adapter tests.
 - Create the Example 3 solution and projects using PurrfectSeat's naming, build, nullable, analyzer, and warnings-as-errors conventions.
 - Implement UUIDv7 identifiers, pure aggregates, snapshots, states, invariants, and business result unions.
-- Define canonical capability inputs/outputs, contract hashing, structural delta, the T-shirt scheduling tier, and separate machine specifications.
+- Define canonical capability inputs/outputs, contract hashing, structural delta, provider classification metadata, and schedulable machine specifications.
 - Define Minimal API DTOs, stable Problem Details codes, and canonical Protobuf envelopes.
 - Add domain and protocol-schema tests.
 

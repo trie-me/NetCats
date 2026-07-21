@@ -46,7 +46,9 @@ An ALB supports WebSockets, HTTP/2, gRPC streaming, listener routing, and `X-For
 
 Define the infrastructure through Terraform, CDK, or CloudFormation under `examples/MutualGPU/deploy/aws/`. Do not rely on console-only configuration for the final deployment.
 
-`examples/MutualGPU/deploy/aws/foundation.yaml` is the first CloudFormation stack. It creates the VPC, two public subnets, internet gateway and routing, security groups, private ECR repository, ECS cluster, CloudWatch log group, and ECS task roles. It deliberately does not create the ALB, certificate, task definition, service, or secrets because those depend on DNS validation, the published image digest, and real Backblaze/provider values.
+`examples/MutualGPU/deploy/aws/foundation.yaml` is the first CloudFormation stack. It creates the VPC, two public subnets, internet gateway and routing, security groups, private ECR repository, ECS cluster, CloudWatch log group, and ECS task roles. It also exports these shared resource identifiers for the second stack.
+
+`examples/MutualGPU/deploy/aws/service.yaml` is the second stack. It creates the public ALB, HTTP-to-HTTPS redirect, HTTPS listener, HTTP/1.1 and gRPC target groups, task definition, and the single-task Fargate service. Its only deployment inputs are an image URI (preferably a digest), an issued ACM certificate ARN, the deployment-secret ARN, and an optional Chrome-provider origin. It contains no credential values.
 
 Deploy it with:
 
@@ -106,7 +108,7 @@ The public hostname is `mutualgpu.com`. The domain does not need to be transferr
 
 If the current DNS provider cannot alias an apex to an ALB, use `api.mutualgpu.com` as the fallback: validate it in ACM and create an ordinary CNAME to the ALB. Do not move the entire zone to Route 53 merely to unblock the demo.
 
-Public requestors and providers communicate only through HTTPS, WSS, or gRPC over TLS. Traffic from the ALB to the task is unencrypted inside the controlled VPC security boundary. The ALB adds `X-Forwarded-Proto: https`, and the API honors it only because the task security group prevents bypassing that trusted ingress.
+Public requestors and providers communicate only through HTTPS, WSS, or gRPC over TLS. Traffic from the ALB to the task is unencrypted inside the controlled VPC security boundary. The ALB adds `X-Forwarded-Proto: https`, and the API honors it only because the task security group prevents bypassing that trusted ingress. The only plaintext exceptions are ALB-internal readiness probes (`GET /health/ready` and the gRPC `/AWS.ALB/healthcheck` method): Kestrel has no private certificate, and the task security group admits these ports only from the ALB.
 
 ## 6. Target groups and protocol routing
 
@@ -115,15 +117,15 @@ Create two IP target groups pointing to the same ECS task:
 | Target group | Container port | Target protocol version | Health check | Traffic |
 |---|---:|---|---|---|
 | `mutualgpu-web` | 8080 | HTTP/1.1 | `GET /health/ready` | UI, REST, WSS, SSE |
-| `mutualgpu-grpc` | 8081 | HTTP/2 | `GET /health/ready` | native gRPC |
+| `mutualgpu-grpc` | 8081 | gRPC | ALB gRPC health probe; expected status `12` (`UNIMPLEMENTED`) | native gRPC |
 
 On the HTTPS listener:
 
-1. add a higher-priority rule routing requests whose `Content-Type` matches `application/grpc*` to `mutualgpu-grpc`;
+1. add a higher-priority path rule for `/mutualgpu.provider.v1.ProviderControl/*` to `mutualgpu-grpc`;
 2. make `mutualgpu-web` the default action;
 3. register both target groups with the same ECS service and container.
 
-Using the HTTP/2 target-group protocol rather than ALB's `gRPC` protocol lets the existing HTTP readiness endpoint serve both target groups. HTTP/2 target groups still support gRPC, including bidirectional streaming, when the target supports it.
+The gRPC target group forwards native gRPC over HTTP/2 to port 8081. Its health probe uses ALB's standard `/AWS.ALB/healthcheck` gRPC method and expects `UNIMPLEMENTED` (`12`), because MutualGPU does not implement that optional service.
 
 Set the ALB idle timeout to at least 300 seconds and verify SDK reconnection after a forced idle disconnect. The default is 60 seconds, and ALB does not use HTTP/2 PING frames to reset the timeout; see [ALB connection idle timeout](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/edit-load-balancer-attributes.html). Application messages or SDK reconnection remain necessary for sessions idle longer than the configured limit.
 
@@ -142,7 +144,7 @@ read-only root filesystem: enabled where runtime verification permits
 CloudWatch awslogs driver: enabled
 ```
 
-Start with a modest task size such as 0.5 vCPU and 1 GiB memory, then increase it if upload validation or startup projection recovery approaches the limit. The API does not run GPU work, but it currently buffers requestor images and validates multipart result uploads, so memory should be observed with near-limit test files before reducing it.
+The included service stack starts at 1 vCPU and 2 GiB memory, then should be reduced only after observing upload validation and startup projection recovery. The API does not run GPU work, but it currently buffers requestor images and validates multipart result uploads, so memory should be observed with near-limit test files before reducing it.
 
 Set a bounded container stop timeout long enough for hosted services to cancel and join fibers. Do not place secrets in ordinary environment-variable declarations or task-definition JSON.
 
@@ -155,8 +157,6 @@ Kestrel__Endpoints__Web__Protocols=Http1
 Kestrel__Endpoints__Grpc__Url=http://0.0.0.0:8081
 Kestrel__Endpoints__Grpc__Protocols=Http2
 MutualGPU__TrustForwardedProto=true
-MutualGPU__Backblaze__Endpoint=https://s3.<b2-region>.backblazeb2.com
-MutualGPU__Backblaze__BucketName=<private-bucket-name>
 MutualGPU__ProviderCorsOrigins__0=https://<chrome-provider-origin>
 NetCats__FiberDiagnostics__Enabled=false
 ```
@@ -165,17 +165,17 @@ Leave `MutualGPU:ProviderCorsOrigins` empty if the deployed demo has no browser 
 
 ### Secrets Manager injection
 
-Inject individual secret values as:
+Inject individual JSON values from the one deployment secret as:
 
 ```text
+MutualGPU__Backblaze__Endpoint
+MutualGPU__Backblaze__BucketName
 MutualGPU__Backblaze__KeyId
 MutualGPU__Backblaze__ApplicationKey
 MutualGPU__ProviderKeyPepper
-MutualGPU__Providers__0__ExecutionUnitId
-MutualGPU__Providers__0__PresharedKey
 ```
 
-Repeat provider entries as needed. The task execution role needs permission to read only the referenced secrets and pull the selected ECR image. The application task role needs no AWS data-store permission because Backblaze uses its own scoped credentials.
+Provider PSKs are issued as Backblaze object records, not task-definition secret entries. The task execution role needs permission to read only the referenced secrets and pull the selected ECR image. The application task role needs no AWS data-store permission because Backblaze uses its own scoped credentials.
 
 ECS can inject individual JSON keys from Secrets Manager, but a running task does not automatically receive rotated values. Force a new single-task deployment after a rotation; see [ECS Secrets Manager injection](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/secrets-envvar-secrets-manager.html).
 

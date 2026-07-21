@@ -31,13 +31,12 @@ Build from the repository root. The Dockerfile deliberately receives the root bu
 
 The Dockerfile should:
 
-1. use `linux/amd64` .NET 10 SDK and runtime stages, matching the Fargate deployment target;
-2. restore from the repository root because the API references both `examples/MutualGPU` and top-level `src` projects;
-3. restore and publish the API project in Release mode; the test matrix remains a release-pipeline gate outside the image build;
-4. copy only the publish output into a pinned `mcr.microsoft.com/dotnet/aspnet:10.0` runtime image;
-5. run as a non-root user with a read-only root filesystem where practical;
-6. expose port `8080` for HTTP/1.1 and port `8081` for cleartext HTTP/2 inside the deployment network;
-7. start `MutualGPU.Api.dll` directly.
+1. publish the framework-dependent API project on the host using the repository's working Protobuf generator configuration;
+2. copy that output from `artifacts/mutualgpu-api` into a pinned `mcr.microsoft.com/dotnet/aspnet:10.0.8` runtime image;
+3. let Buildx assemble the same managed publish output into `linux/amd64` and `linux/arm64` runtime images, without invoking `Grpc.Tools` inside a Linux ARM build container;
+4. run as a non-root user with a read-only root filesystem where practical;
+5. expose port `8080` for HTTP/1.1 and port `8081` for cleartext HTTP/2 inside the deployment network;
+6. start `MutualGPU.Api.dll` directly.
 
 Use two Kestrel endpoints because browser WebSocket upgrades require HTTP/1.1 while native gRPC needs HTTP/2 between the load balancer and container:
 
@@ -67,6 +66,13 @@ dotnet test examples/MutualGPU/NetCats.Examples.MutualGPU.slnx \
   --configuration Release --no-restore
 node --test examples/MutualGPU/tests/frontend/*.test.mjs
 npm test --prefix examples/MutualGPU/sdk/typescript
+
+dotnet publish examples/MutualGPU/src/MutualGPU.Api/MutualGPU.Api.csproj \
+  --configuration Release \
+  --no-restore \
+  --disable-build-servers \
+  --output artifacts/mutualgpu-api \
+  /p:UseAppHost=false
 
 aws ecr get-login-password \
   --region "$AWS_REGION" \
@@ -125,11 +131,17 @@ The following are secrets and must be injected at deployment time rather than st
 MutualGPU__Backblaze__KeyId
 MutualGPU__Backblaze__ApplicationKey
 MutualGPU__ProviderKeyPepper
-MutualGPU__Providers__0__ExecutionUnitId
-MutualGPU__Providers__0__PresharedKey
 ```
 
-Repeat the indexed provider pair for every preprovisioned execution unit.
+Provider shared keys are not task-definition secrets. They are durable, HMAC-addressed Backblaze records under `mutualgpu/v3/provider-keys/`; their existence is the authentication binding. The raw key never appears in an object name or record body.
+
+Issue a batch through the operator-only provisioner, using the same Backblaze credentials and pepper as the API:
+
+```text
+dotnet run --project examples/MutualGPU/tools/MutualGPU.ProviderKeyProvisioner -- --count 20
+```
+
+It writes one create-only record per key and emits each raw provider key exactly once. Send the output through an approved secret-distribution channel; do not write it to source, CI logs, task definitions, or deployment secrets. The Node or Chrome provider receives only its own key.
 
 Before publication, add a production startup guard: when `ASPNETCORE_ENVIRONMENT=Production` and `MutualGPU:Backblaze` is absent, the API must fail startup rather than silently select `InMemoryObjectStore`. An explicit local/demo override can preserve the credential-free local composition.
 
