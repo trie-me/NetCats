@@ -9,7 +9,7 @@ const requestor = new RequestorClient("https://mutualgpu.com/");
 const capabilities = await requestor.listCapabilities();
 ```
 
-Before the first API operation, the client performs one credentialed `GET /` and waits for the anonymous requestor cookie. Concurrent initial operations share that bootstrap request. Every API request uses `credentials: "include"`; if the API still reports `requestor_identity_missing`, the client retries that operation once.
+Before the first API operation, the client performs one uncached credentialed `GET /` and waits for the anonymous requestor cookie. Concurrent initial operations share that bootstrap request. A failed bootstrap may be retried by the next operation. Every API request uses `credentials: "include"`; if the API still reports `requestor_identity_missing`, the client retries that operation once.
 
 ## Methods
 
@@ -27,4 +27,4 @@ Before the first API operation, the client performs one credentialed `GET /` and
 
 Failures throw `RequestorApiError` with `status`, `code`, `problem`, and raw `body` properties. Result artifact download URLs are short-lived; request a fresh result descriptor after expiry.
 
-Cross-origin applications must be exact entries in `MutualGPU:ProviderCorsOrigins`. The API cookie is `HttpOnly; Secure; SameSite=None`, so application JavaScript never reads or copies it.
+Cross-origin applications must be exact entries in `MutualGPU:ProviderCorsOrigins`. The API cookie is `HttpOnly; Secure; SameSite=None; Partitioned`, so application JavaScript never reads or copies it and unrelated top-level sites do not share one requestor identity.

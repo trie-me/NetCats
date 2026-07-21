@@ -48,6 +48,11 @@ examples-test-webgpu-enrollment:
 examples-test-cross-origin-cors:
     MUTUALGPU_API_URL="${MUTUALGPU_API_URL:-https://mutualgpu.com}" MUTUALGPU_CORS_TEST_ORIGIN="${MUTUALGPU_CORS_TEST_ORIGIN:-https://yosun-triposplat-webgpu-demo.static.hf.space}" MUTUALGPU_BROWSER_EXECUTABLE="${MUTUALGPU_BROWSER_EXECUTABLE:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node --test examples/MutualGPU/sdk/typescript/integration/browser-cross-origin-cors.test.mjs
 
+# Required after deploying the API build paired with an SDK release. Runs every
+# SDK test plus the hosted cross-origin requestor checks in real Chromium.
+examples-test-sdk-release-gate:
+    MUTUALGPU_API_URL="${MUTUALGPU_API_URL:-https://mutualgpu.com}" MUTUALGPU_CORS_TEST_ORIGIN="${MUTUALGPU_CORS_TEST_ORIGIN:-https://yosun-triposplat-webgpu-demo.static.hf.space}" MUTUALGPU_BROWSER_EXECUTABLE="${MUTUALGPU_BROWSER_EXECUTABLE:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" npm run test:release-gate --prefix examples/MutualGPU/sdk/typescript
+
 mutualgpu-dev-cert:
     dotnet dev-certs https --trust
 

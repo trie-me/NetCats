@@ -1055,6 +1055,7 @@ On the first requestor visit, the server issues a raw UUIDv7 `RequestorId` cooki
 HttpOnly
 Secure
 SameSite=None
+Partitioned
 Path=/
 Expires=one year
 ```
@@ -1063,7 +1064,7 @@ The server refreshes it when appropriate. Possession of the cookie grants access
 
 Every requestor query derives the storage prefix from the cookie and never accepts an arbitrary requestor ID from the client. UUIDv7 task identifiers remain unguessable enough for routing but are not a substitute for the cookie ownership check.
 
-The `SameSite=None` setting permits the explicitly allow-listed browser application to use the requestor API across sites. Every browser call uses credentialed fetch. Cookie-authenticated task mutations additionally reject an `Origin` that is neither the API's own origin nor an exact configured `MutualGPU:ProviderCorsOrigins` entry; CORS response headers alone are not treated as CSRF protection.
+The `SameSite=None` setting permits the explicitly allow-listed browser application to use the requestor API across sites. `Partitioned` keeps that flow available when ordinary third-party cookies are blocked and scopes the identity to the top-level site. Every browser call uses credentialed fetch. Cookie-authenticated task mutations additionally reject an `Origin` that is neither the API's own origin nor an exact configured `MutualGPU:ProviderCorsOrigins` entry; CORS response headers alone are not treated as CSRF protection.
 
 ## Requestor HTTP API
 
