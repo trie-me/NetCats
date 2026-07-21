@@ -1,11 +1,13 @@
 <Solution>
   <Project Path="src/NetCats.Core/NetCats.Core.csproj" />
   <Project Path="src/NetCats.Runtime/NetCats.Runtime.csproj" />
+  <Project Path="src/NetCats.AspNetCore/NetCats.AspNetCore.csproj" />
   <Project Path="src/NetCats.Generators/NetCats.Generators.csproj" />
   <Project Path="src/NetCats.Reactive/NetCats.Reactive.csproj" />
   <Project Path="src/NetCats.Testing/NetCats.Testing.csproj" />
   <Project Path="tests/NetCats.Core.Tests/NetCats.Core.Tests.csproj" />
   <Project Path="tests/NetCats.Runtime.Tests/NetCats.Runtime.Tests.csproj" />
+  <Project Path="tests/NetCats.AspNetCore.Tests/NetCats.AspNetCore.Tests.csproj" />
   <Project Path="tests/NetCats.Reactive.Tests/NetCats.Reactive.Tests.csproj" />
   <Project Path="tests/NetCats.Integration.Tests/NetCats.Integration.Tests.csproj" />
 </Solution>

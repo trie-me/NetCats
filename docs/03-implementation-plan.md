@@ -58,7 +58,7 @@ Names, packaging, and low-level representations remain provisional until their P
    async/await          timers and virtual time
            |
            v
-   Optional adapters: Rx, IAsyncEnumerable, hosting/testing
+   Optional adapters: Rx, IAsyncEnumerable, ASP.NET Core, hosting/testing
 ```
 
 ## Proposed repository and package structure
@@ -72,6 +72,7 @@ src/
   NetCats.Generators/           incremental source generator
   NetCats.Analyzers/            diagnostics not owned by generation
   NetCats.Reactive/             optional Reactive Extensions adapters
+  NetCats.AspNetCore/           optional fiber-tree diagnostics endpoints
   NetCats.Testing/              laws, deterministic runtime, test helpers
 
 tests/
@@ -79,6 +80,7 @@ tests/
   NetCats.Runtime.Tests/
   NetCats.Generators.Tests/
   NetCats.Reactive.Tests/
+  NetCats.AspNetCore.Tests/
   NetCats.Laws.Tests/
   NetCats.Integration.Tests/
 
@@ -150,6 +152,33 @@ public interface ICancelSignal
     Task WhenRequested { get; }
 }
 ```
+
+Fiber-tree observation is an opt-in runtime concern with an optional ASP.NET Core projection:
+
+```csharp
+public sealed record FiberDescriptor(
+    string Name,
+    IReadOnlyDictionary<string, string>? Labels = null);
+
+public interface IFiberObserver
+{
+    void OnEvent(FiberLifecycleEvent value);
+}
+
+public sealed record FiberScopeOptions(
+    string Name,
+    IFiberObserver? Observer = null,
+    FiberScopeId? ParentScopeId = null,
+    FiberId? ParentFiberId = null);
+
+var scope = FiberScope.CreateRoot(new FiberScopeOptions("application", observer));
+var fiber = scope.Start(operation, new FiberDescriptor("expiry-worker"));
+
+builder.Services.AddNetCatsFiberDiagnostics();
+app.MapNetCatsFiberDiagnostics("/_netcats/fibers");
+```
+
+The exact types remain subject to public API review. The essential contract is that scopes and fibers have stable logical identities, explicit display names, structured ownership, and a non-blocking lifecycle observer. Capture observations with their state transition, dispatch them only after releasing runtime locks, and keep each node's transitions monotonic. Observation must never change scheduling, cancellation, finalization, or outcomes.
 
 The exact representation of `Outcome<T>`, allocation strategy, and task/value-task choices must follow POC measurements.
 
@@ -259,6 +288,9 @@ POCs 5 and 6 accepted.
 - Implement join, request cancellation, and cancel-and-await.
 - Implement `FiberScope` with atomic registration/removal.
 - Implement nested scopes and explicit detached-fiber policy.
+- Give scopes stable logical IDs, optional display names, and explicit parent-scope/parent-fiber relationships.
+- Give started fibers optional descriptors suitable for diagnostics without retaining the effect value.
+- Add an opt-in lifecycle observer for scope open/close and fiber start/cancellation/termination transitions.
 - Implement scope-close cancellation and join.
 - Add a scheduler local to each runtime execution tree.
 - Add operation-budget fairness and explicit yielding.
@@ -274,6 +306,8 @@ POCs 5 and 6 accepted.
 - Native tasks continue to use normal .NET scheduling facilities.
 - No global scheduler or synchronization-context mutation is required.
 - Time-based tests run without wall-clock delays.
+- Observer failures are isolated from runtime semantics, and a disabled observer adds no retained tree state.
+- Scope/fiber ownership can be reconstructed deterministically from lifecycle events without implying thread ownership or an async call graph.
 
 ## Phase 5: Concurrent and temporal operations
 
@@ -356,6 +390,13 @@ POC 9 accepted or incorporated as this phase's entry gate.
 ### Work
 
 - Add opt-in fiber dumps, scope trees, cancellation traces, and finalizer traces.
+- Project lifecycle events into a bounded current-state registry without retaining effect results or exception objects.
+- Add an optional `NetCats.AspNetCore` adapter that can be mapped into any ASP.NET Core API.
+- Expose `GET /_netcats/fibers/snapshot` for the current tree and `GET /_netcats/fibers/stream` for typed server-sent snapshots.
+- Send an initial full snapshot on stream connection, then coalesce state changes into versioned full snapshots so slow clients receive the latest tree rather than backpressuring fibers.
+- Keep completed nodes for a short configurable display window, then evict them; cap scopes, fibers, labels, clients, and buffered notifications.
+- Make diagnostics opt-in, disabled outside development/demo by default, and compatible with endpoint authorization policies.
+- Provide small browser-side reference code that renders the stream as an expandable overlay without adding control operations to the diagnostic endpoint.
 - Integrate with `ActivitySource`, `EventSource`, or metrics only after measuring overhead.
 - Benchmark direct tasks against representative NetCats programs.
 - Optimise instruction representation, continuation storage, and scheduler queues.
@@ -369,6 +410,10 @@ POC 9 accepted or incorporated as this phase's entry gate.
 
 - Performance budgets are met or consciously revised.
 - Tracing-disabled overhead is understood and acceptable.
+- Fiber-tree subscribers cannot block, fail, cancel, or otherwise affect observed fibers.
+- Snapshot and stream endpoints expose the same monotonically versioned tree and recover from reconnect by sending current state.
+- The projection remains bounded under high fan-out, slow clients, and repeated connect/disconnect cycles.
+- Diagnostics responses never include effect values, exception objects, arbitrary `Activity` baggage, or secret-bearing labels.
 - No known scope, continuation, finalizer, or cancellation leaks remain.
 - Deployment limitations are explicit.
 - Public API review approves the first release-candidate surface.

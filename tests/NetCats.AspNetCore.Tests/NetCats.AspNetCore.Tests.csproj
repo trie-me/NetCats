@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../../src/NetCats.AspNetCore/NetCats.AspNetCore.csproj" />
+    <ProjectReference Include="../../src/NetCats.Testing/NetCats.Testing.csproj" />
+  </ItemGroup>
+</Project>

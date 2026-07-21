@@ -20,6 +20,7 @@ PurrfectSeat.com should:
 - provide a usable fake customer booking frontend as well as an operator dashboard;
 - commit fully to a playful feline ticket-hawker identity without hiding real system state;
 - make cancellation, fibers, finalizers, retries, conflicts, queues, and latency visible;
+- consume the reusable NetCats ASP.NET Core fiber-tree stream rather than inventing an example-specific scope protocol;
 - run as a single process with simulated infrastructure;
 - require no database, container runtime, JavaScript build chain, or external telemetry stack;
 - remain suitable for integration tests, deterministic tests, and live demonstrations;
@@ -205,7 +206,7 @@ Minimal API request/response records and shared telemetry DTOs. Contracts do not
 
 #### `PurrfectSeat.Api`
 
-The .NET 10 Minimal API host, endpoint mappings, `TypedResults` conversions, exception handling, public availability and demo telemetry SSE endpoints, hosted expiry worker, and both static web surfaces under `wwwroot`.
+The .NET 10 Minimal API host, endpoint mappings, `TypedResults` conversions, exception handling, public availability and demo telemetry SSE endpoints, opt-in NetCats fiber diagnostics endpoints, hosted expiry worker, and both static web surfaces under `wwwroot`.
 
 #### `PurrfectSeat.Scenarios`
 
@@ -646,11 +647,13 @@ wwwroot/
     site.css
     box-office.css
     control-room.css
+    fiber-tree-overlay.css
   js/
     api-client.js
     event-stream.js
     box-office.js
     control-room.js
+    fiber-tree-overlay.js
     seat-map.js
     charts.js
 ```
@@ -837,7 +840,16 @@ Playful aliases can sit beneath the real metric labels—for example “pounces/
 
 ### Runtime panel
 
-Display a compact logical scope tree:
+Display the compact logical ownership tree produced by the reusable `NetCats.AspNetCore` diagnostics adapter:
+
+```http
+GET /_netcats/fibers/snapshot
+GET /_netcats/fibers/stream
+```
+
+The panel opens an `EventSource` only while visible. The first event is a complete versioned tree and later events are coalesced complete snapshots, allowing slow or reconnecting clients to render current state without backpressuring runtime fibers.
+
+Example presentation:
 
 ```text
 Application scope
@@ -850,7 +862,7 @@ Application scope
     └── customer 003    finalizing
 ```
 
-This is a logical view only. Do not display or imply thread ownership.
+This is a structured ownership view only. Do not display or imply thread ownership, an async call graph, or stack traces. The endpoint is read-only and never exposes effect values, exception objects, customer identifiers, payment values, or control operations.
 
 ### Activity feed
 
@@ -952,7 +964,7 @@ Returns:
 Task<Ok<TelemetrySnapshot>>
 ```
 
-The snapshot contains the current seat state, active scenario, rolling histograms, logical scope summaries, queue depth, and latest feed cursor.
+The snapshot contains the current seat state, active scenario, rolling histograms, queue depth, and latest feed cursor. It does not duplicate the fiber tree; the generic NetCats diagnostics endpoints are authoritative for that projection.
 
 ## Demo-only endpoints
 
@@ -967,9 +979,11 @@ PUT  /demo/simulation
 POST /demo/time/advance
 GET  /demo/telemetry/snapshot
 GET  /demo/telemetry/stream
+GET  /_netcats/fibers/snapshot
+GET  /_netcats/fibers/stream
 ```
 
-All finite endpoints return `TypedResults`. The SSE endpoint uses `TypedResults.ServerSentEvents`.
+All finite endpoints return `TypedResults`. The SSE endpoints use `TypedResults.ServerSentEvents`. The `/_netcats/fibers/*` endpoints are supplied by the optional reusable NetCats ASP.NET Core adapter and mapped only in the `Demo` environment for this example.
 
 ## Meaningful performance scenarios
 
@@ -1060,6 +1074,7 @@ Test:
 - public availability SSE reconnect and gap refresh;
 - Catwalk snapshot rendering;
 - telemetry SSE reconnect and gap refresh;
+- fiber overlay open/close, nested scope rendering, lifecycle changes, and SSE reconnect;
 - scenario start/stop and manual-time controls.
 
 Full visual-regression infrastructure is not required initially.
@@ -1081,6 +1096,7 @@ Full visual-regression infrastructure is not required initially.
 
 ### Phase 3: NetCats showcase primitives
 
+- Promote named scope/fiber descriptors, non-blocking lifecycle observation, and the optional ASP.NET Core fiber diagnostics adapter.
 - Implement and promote `Resource<T>`.
 - Add parallel composition and bounded traversal.
 - Add timeout and retry schedule support.
@@ -1102,7 +1118,7 @@ Full visual-regression infrastructure is not required initially.
 - Add activities, metrics, and bounded telemetry projection.
 - Add typed snapshot and SSE endpoints.
 - Build the static Catwalk — Effect Control Room.
-- Add scenario controls, seat map, charts, scope tree, and activity feed.
+- Add scenario controls, seat map, charts, the reusable fiber-tree overlay, and activity feed.
 
 ### Phase 6: Performance demonstrations and hardening
 
@@ -1126,6 +1142,8 @@ The example is complete when:
 - cancelled confirmation voids provisional payment and closes its unit of work;
 - the expiry worker is bounded and shuts down without owned fibers;
 - the dashboard reconnects to typed SSE without leaking subscriptions;
+- the Catwalk renders the reusable versioned NetCats fiber tree while scenarios run, and closing the panel closes its stream;
+- slow fiber-tree clients cannot backpressure or alter observed fiber execution;
 - the Box Office and Catwalk can run concurrently against the same performance state;
 - KPI and chart data use bounded, low-cardinality telemetry;
 - manual time demonstrates expiry without wall-clock delay;
