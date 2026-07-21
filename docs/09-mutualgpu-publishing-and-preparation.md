@@ -130,15 +130,18 @@ The following are secrets and must be injected at deployment time rather than st
 ```text
 MutualGPU__Backblaze__KeyId
 MutualGPU__Backblaze__ApplicationKey
-MutualGPU__ProviderKeyPepper
 ```
 
-Provider shared keys are not task-definition secrets. They are durable, HMAC-addressed Backblaze records under `mutualgpu/v3/provider-keys/`; their existence is the authentication binding. The raw key never appears in an object name or record body.
+Provider shared keys are not task-definition secrets. They are durable, SHA-256-addressed records in the dedicated AWS S3 bucket `mutualgpu-preshared-keys`, under `mutualgpu/v3/provider-keys/`; their existence is the authentication binding. Keys are generated with 256 bits of randomness, and the raw key never appears in an object name or record body.
 
-Issue a batch through the operator-only provisioner, using the same Backblaze credentials and pepper as the API:
+Issue a batch through the operator-only provisioner, using the standard AWS credential chain and the same pepper as the API. Capture the one-time plaintext output in a restricted file, never CI or terminal logs:
 
 ```text
-dotnet run --project examples/MutualGPU/tools/MutualGPU.ProviderKeyProvisioner -- --count 20
+umask 077
+AWS_PROFILE=ai-quinn \
+MutualGPU__ProviderKeyS3__BucketName=mutualgpu-preshared-keys \
+MutualGPU__ProviderKeyS3__Region=us-east-1 \
+dotnet run --project examples/MutualGPU/tools/MutualGPU.ProviderKeyProvisioner -- --count 20 > provider-keys.txt
 ```
 
 It writes one create-only record per key and emits each raw provider key exactly once. Send the output through an approved secret-distribution channel; do not write it to source, CI logs, task definitions, or deployment secrets. The Node or Chrome provider receives only its own key.
