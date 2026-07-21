@@ -2,7 +2,7 @@
 
 The MutualGPU provider SDK lets an application advertise the work it can perform and handle tasks from the exchange. Provider code describes capabilities, decides whether to accept a task, executes the workload, and produces a result. The SDK owns the API protocol around those decisions.
 
-The current demo SDK supports Node.js and Chrome providers. The Swift package is not part of the current demo release.
+The current SDK supports Node.js and Chrome providers. These are the only supported consumer environments described by this documentation.
 
 ## What the SDK handles
 
@@ -35,6 +35,17 @@ Use `@mutualgpu/provider-core` with the transport for the provider environment. 
 | `@mutualgpu/provider-core` | `ProviderClient` and the task lifecycle |
 | `@mutualgpu/provider-node` | Node.js transport |
 | `@mutualgpu/provider-web` | Chrome transport |
+
+The current packages are repository-local preview packages rather than a documented public-registry release. From a source checkout, install the workspace and run its tests with:
+
+```text
+npm install --prefix examples/MutualGPU/sdk/typescript
+npm test --prefix examples/MutualGPU/sdk/typescript
+```
+
+The packages are ECMAScript modules. Node consumers must run in an ESM project or use `.mjs` entry points. The Node transport also requires the standard `fetch`, `Blob`, `FormData`, and Web Crypto APIs used by result upload. A public release must state its supported Node and Chrome version range before consumers should depend on one.
+
+The preview currently ships JavaScript without TypeScript declaration files. The object shapes in this guide and the [consumer API reference](../reference/provider-api.md) are therefore the public consumer contract for the demo.
 
 ## Configuration
 
@@ -97,9 +108,20 @@ const definition = {
 
 Capability identity and continuity fields are server-owned. The SDK supplies them; consumers should not create capability IDs or contract hashes.
 
-`machine.tier` is the T-shirt scheduling abstraction. Its concrete values are `Small`, `Medium`, `Large`, and `ExtraLarge`; `Automatic` is only a requestor choice and is invalid during enrollment.
+`machine.tier` is provider classification metadata. Its concrete values are `Small`, `Medium`, `Large`, and `ExtraLarge`; `Automatic` is only a requestor choice and is invalid during enrollment.
 
-`machine.specifications` describes the enrolled hardware for the supplemental availability matrix. `computeTier` supplies the CPU/GPU row and `memoryGiB` supplies the numeric memory column. These specifications do not become task constraints and do not replace the single T-shirt tier selector.
+`machine.specifications` describes the hardware capacity exposed to requestors and used by scheduling. `computeTier` supplies the minimum CPU/GPU class and `memoryGiB` supplies the minimum memory capacity. A provider can satisfy work requesting an equal or smaller specification. These fields are separate from `machine.tier`, which remains provider classification metadata.
+
+The accepted memory ranges are:
+
+| `computeTier` | Valid `memoryGiB` |
+| --- | --- |
+| `Small` | 8 through 16 |
+| `Medium` | 8 through 24 |
+| `Large` | 8 through 48 |
+| `ExtraLarge` | 8 through 128 |
+
+Capability names must be unique within an enrollment, and input keys must be unique within a capability. Enrollment is a complete replacement of the execution unit's advertised definition: omitting a previously enrolled capability removes it from future scheduling.
 
 ### Inputs
 
@@ -109,7 +131,7 @@ Each input has a stable `key` used in `task.scalars`. Supported types are:
 String, Integer, Number, Boolean, Date, DateTime, DateTimeOffset, Image
 ```
 
-An enrollment can declare at most one image input. Image definitions can restrict accepted content types. Scalar definitions can declare defaults, ranges, or allowed values where appropriate.
+An enrollment can declare at most one image input. Only an image input can declare `contentTypes`, and only a string input can declare `allowedValues`. Scalar definitions can declare `default`, `minimum`, and `maximum` where appropriate. See the [enrollment schema reference](../reference/enrollment-schema.md) for every field and validation rule.
 
 ### Outputs
 
@@ -121,6 +143,8 @@ Every successful task produces a ZIP. A capability can additionally declare:
 - UTF-8 logs.
 
 Only upload optional parts declared by the capability.
+
+The exact output properties are `hasThumbnail`, `hasPreview`, `hasMetadata`, `hasLogs`, `previewContentTypes`, and `metadataSchema`. `previewContentTypes` is required in practice when a preview is enabled because the server accepts a preview only when its uploaded MIME type is declared. The demo stores `metadataSchema` as contract metadata but does not perform complete JSON Schema evaluation.
 
 ## Node.js provider
 
@@ -166,6 +190,8 @@ await provider.connect(async task => {
 
 The provider session remains active after `connect` completes its handshake. The underlying connection keeps the Node.js process available for assignments.
 
+For production shutdown, arrange cooperative cancellation for the workload separately. `provider.close()` closes the SDK transport and stops reconnection; it does not abort application code already running inside the handler.
+
 ## Chrome provider
 
 Chrome uses the same lifecycle with its browser transport:
@@ -189,6 +215,14 @@ await provider.connect(async task => {
 
 The MutualGPU operator must allow the provider application's browser origin. That is deployment configuration; SDK code still needs only the API base URL and provider key.
 
+The API host uses an exact origin allow-list for browser enrollment and result upload. For example:
+
+```text
+MutualGPU__ProviderCorsOrigins__0=https://provider.example
+```
+
+Configure the origin, including scheme and port where applicable, rather than the API URL or WebSocket URL. Leave the list empty when browser providers are disabled.
+
 Do not ship a provider key in a generally accessible public web application. A Chrome provider is suitable only when the provider operator controls the browser environment and key distribution.
 
 ## Accept or reject an assignment
@@ -207,6 +241,8 @@ await task.reject("GPU is below the required capability");
 
 Receiving an assignment is not acceptance. If the handler returns while pending, the SDK rejects it automatically. After acceptance, the handler must complete or fail the task.
 
+The task facade exposes an `acknowledgementDeadline` set to 30 seconds after local assignment receipt. Treat it as an operational deadline, not as a durable server timestamp. Accept or reject promptly instead of waiting until the final instant.
+
 ## Read task inputs
 
 Scalar values are available as strings:
@@ -221,9 +257,26 @@ An image assignment can contain an opaque, short-lived HTTPS descriptor:
 async function downloadInput(descriptor) {
   const response = await fetch(descriptor.url);
   if (!response.ok) throw new Error(`Input download failed: ${response.status}`);
-  return new Uint8Array(await response.arrayBuffer());
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (bytes.byteLength !== descriptor.length) {
+    throw new Error("Input length did not match the assignment descriptor");
+  }
+  const digest = await sha256(bytes);
+  if (digest !== descriptor.sha256.toLowerCase()) {
+    throw new Error("Input checksum did not match the assignment descriptor");
+  }
+  return { bytes, contentType: descriptor.contentType };
+}
+
+async function sha256(bytes) {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)]
+    .map(byte => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 ```
+
+Validate `descriptor.contentType` against the enrolled image input before passing the bytes to a decoder. Treat the URL, input bytes, and scalar values as untrusted requestor data. Do not log the URL because it may contain short-lived storage authorization.
 
 If the URL expires after acceptance, request a replacement through the task object:
 
@@ -245,7 +298,7 @@ const sent = await task.reportProgress({
 });
 ```
 
-The SDK sends at most one update per second. It returns `false` when a call is coalesced, so execution must not depend on every progress update being delivered.
+The SDK sends at most one update per second. It returns `false` when a call is dropped inside that interval, so execution must not depend on every progress update being delivered.
 
 ## Publish a result
 
@@ -265,6 +318,18 @@ await task.complete(receipt);
 
 `uploadResult` obtains authorization, calculates the ZIP checksum, builds and sends the result, validates the response, and returns the completion receipt. The returned `sha256` is available for application diagnostics.
 
+Each part accepts a `Blob`, `ArrayBuffer`, typed array, string, or an object that supplies a body and optional MIME metadata:
+
+```js
+const preview = {
+  data: previewBytes,
+  contentType: "image/webp",
+  fileName: "preview.webp"
+};
+```
+
+The body property may be named `data`, `body`, or `content`. Set `contentType` explicitly for JPEG or WebP images; otherwise image parts default to `image/png`. `metadata` may be supplied directly as a plain JSON object.
+
 Current demo limits are:
 
 | Value | Constraint |
@@ -275,7 +340,7 @@ Current demo limits are:
 | `preview` | Declared image content type, at most 5 MiB |
 | `logs` | UTF-8 text, at most 1 MiB |
 
-The complete result is limited to 64 MiB. A malformed result ends that attempt; application code should not replay the same upload. MutualGPU owns the task's retry policy.
+The complete result is limited to 64 MiB. A malformed or server-rejected result consumes its single-use upload authorization and ends that attempt; application code should not replay it. If the network fails before a response is received, the outcome can be ambiguous. Do not blindly upload again: fail the active task with a safe `upload` diagnostic unless the operator's recovery policy explicitly permits another SDK-managed upload attempt. MutualGPU owns the logical task's retry policy.
 
 ## Report failure
 
@@ -294,7 +359,15 @@ An exception that escapes the handler after acceptance is converted by `Provider
 
 ## Reconnect and shutdown
 
-The SDK automatically retries an unexpected connection loss with bounded backoff. If a task is active, it attempts to rebind that task during the server's grace period. Application code should keep the active workload in place and must not start duplicate execution.
+The SDK automatically retries an unexpected connection loss until `close()` is called. The default exponential delay is capped at 30 seconds between attempts; the number of attempts is not capped. If a task is active, it attempts to rebind that task during the server's grace period. Application code should keep the active workload in place and must not start duplicate execution.
+
+Tests may replace the delay policy through the client constructor:
+
+```js
+const provider = new ProviderClient(transport, {
+  reconnectDelay: attempt => Math.min(250 * 2 ** (attempt - 1), 5_000)
+});
+```
 
 If rebind is no longer authorized, treat the old attempt as lost. Do not reuse old result authorization or try to complete it outside the SDK lifecycle.
 
@@ -305,7 +378,7 @@ process.on("SIGTERM", () => provider.close());
 process.on("SIGINT", () => provider.close());
 ```
 
-Finish or fail accepted work before closing when possible. `close()` stops reconnect and closes the provider session.
+Finish or fail accepted work before closing when possible. `close()` stops reconnect and closes the provider session, but it does not cancel the handler's workload. Keep an application-owned `AbortController` or equivalent cancellation mechanism if shutdown must interrupt local execution.
 
 ## Error handling
 
@@ -318,7 +391,7 @@ Errors from SDK methods mean the lifecycle operation did not complete. Useful ha
 - result validation failure: do not replay the upload;
 - connection loss: allow automatic reconnect unless shutting down.
 
-`ProviderUploadError` describes a rejected result. `ProviderClientError` identifies invalid local lifecycle operations, such as reporting progress before acceptance.
+`ProviderUploadError` describes a rejected result and exposes its HTTP `status`. `ProviderClientError` identifies invalid local lifecycle operations and exposes a stable `code`: `invalid_task_state` means a task method was called in the wrong state, while `not_connected` means manual reconnect was requested before a handler was registered. Transport, authentication, and protocol failures currently surface as ordinary `Error` instances. See the [consumer API reference](../reference/provider-api.md) for method preconditions and error handling.
 
 ## Local integration
 
