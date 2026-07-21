@@ -29,4 +29,18 @@ examples-wasm-run:
 examples-wasm-publish:
     dotnet publish examples/PurrfectSeat/src/PurrfectSeat.Wasm/PurrfectSeat.Wasm.csproj --configuration Release --disable-build-servers --verbosity minimal -m:1
 
+mutualgpu-test:
+    dotnet test examples/MutualGPU/NetCats.Examples.MutualGPU.slnx --disable-build-servers --verbosity minimal -m:1
+    node --test examples/MutualGPU/tests/frontend/*.test.mjs
+    npm test --prefix examples/MutualGPU/sdk/typescript
+
+mutualgpu-dev-cert:
+    dotnet dev-certs https --trust
+
+mutualgpu-local-smoke:
+    ./examples/MutualGPU/scripts/run-local-composition.sh smoke
+
+mutualgpu-local-demo:
+    ./examples/MutualGPU/scripts/run-local-composition.sh demo
+
 check: build test examples-build examples-test examples-wasm-build

@@ -396,21 +396,37 @@ public static class FiberDiagnosticsEndpointRouteBuilderExtensions
             applicationLifetime.ApplicationStopping);
         var cancellationToken = stopping.Token;
         var version = -1L;
+        // Completed fibers/scopes expire based on wall-clock time, not another
+        // lifecycle event. Wake periodically so an otherwise idle stream prunes
+        // and publishes those departures on its own.
+        var retention = options.Value.CompletedRetention;
+        var maintenanceInterval = retention > TimeSpan.Zero && retention < TimeSpan.FromSeconds(1)
+            ? retention
+            : TimeSpan.FromSeconds(1);
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
                 var snapshot = registry.GetSnapshot();
-                if (snapshot.Version != version)
-                {
-                    var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
-                    await context.Response.WriteAsync($"event: snapshot\ndata: {json}\n\n", cancellationToken).ConfigureAwait(false);
-                    await context.Response.Body.FlushAsync(cancellationToken).ConfigureAwait(false);
-                    version = snapshot.Version;
-                }
+                // Emit a low-rate heartbeat even when the graph is unchanged. It
+                // proves the stream is live, refreshes the observed timestamp for
+                // viewers, and gives retention pruning an idle-path publication.
+                var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
+                await context.Response.WriteAsync($"event: snapshot\ndata: {json}\n\n", cancellationToken).ConfigureAwait(false);
+                await context.Response.Body.FlushAsync(cancellationToken).ConfigureAwait(false);
+                version = snapshot.Version;
 
                 await Task.Delay(options.Value.MaximumPublishRate, timeProvider, cancellationToken).ConfigureAwait(false);
-                await registry.WaitForChangeAsync(version, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await registry.WaitForChangeAsync(version, cancellationToken)
+                        .WaitAsync(maintenanceInterval, timeProvider, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    // The next loop calls GetSnapshot, which performs retention pruning.
+                }
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

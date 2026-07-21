@@ -85,6 +85,40 @@ public sealed class FiberDiagnosticsStreamTests
     }
 
     [Fact]
+    public async Task An_idle_stream_prunes_completed_nodes_without_a_new_lifecycle_event()
+    {
+        var clock = new SignalingTimeProvider(new DateTimeOffset(2026, 7, 21, 12, 0, 0, TimeSpan.Zero));
+        var options = Options.Create(new FiberDiagnosticsOptions
+        {
+            MaximumPublishRate = TimeSpan.FromSeconds(1),
+            CompletedRetention = TimeSpan.FromSeconds(1),
+        });
+        var registry = new FiberDiagnosticsRegistry(options, clock);
+        var scopeId = Guid.NewGuid();
+        var fiberId = Guid.NewGuid();
+        registry.Observe(FiberDiagnosticsRegistryTests.ScopeOpened(scopeId, clock.GetUtcNow()));
+        registry.Observe(FiberDiagnosticsRegistryTests.FiberStarted(scopeId, fiberId, "short-lived", clock.GetUtcNow()));
+        registry.Observe(FiberDiagnosticsRegistryTests.FiberTerminated(scopeId, fiberId, "short-lived", clock.GetUtcNow()));
+
+        using var shutdown = new CancellationTokenSource();
+        var body = new RecordingStream();
+        var streaming = FiberDiagnosticsEndpointRouteBuilderExtensions.StreamSnapshots(
+            CreateContext(body, shutdown.Token), registry, options, clock, new TestApplicationLifetime());
+        await body.WaitForWritesAsync(1);
+        await clock.WaitForTimerAsync(1);
+        clock.Advance(TimeSpan.FromSeconds(1));
+        await clock.WaitForTimerAsync(2);
+        clock.Advance(TimeSpan.FromSeconds(1));
+        await body.WaitForWritesAsync(2);
+
+        var snapshots = ReadSnapshots(body.Text);
+        Assert.Empty(snapshots[1].GetProperty("roots")[0].GetProperty("fibers").EnumerateArray());
+
+        shutdown.Cancel();
+        await streaming.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
     public async Task All_connected_streams_release_promptly_when_the_host_stops()
     {
         var time = TimeProvider.System;
@@ -216,7 +250,9 @@ public sealed class FiberDiagnosticsStreamTests
     private sealed class SignalingTimeProvider(DateTimeOffset start) : TimeProvider
     {
         private readonly ManualTimeProvider inner = new(start);
-        private readonly TaskCompletionSource timerCreated = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly object gate = new();
+        private readonly List<(int Count, TaskCompletionSource Waiter)> timerWaiters = [];
+        private int timerCount;
 
         public override long TimestampFrequency => inner.TimestampFrequency;
         public override DateTimeOffset GetUtcNow() => inner.GetUtcNow();
@@ -224,11 +260,28 @@ public sealed class FiberDiagnosticsStreamTests
         public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
         {
             var timer = inner.CreateTimer(callback, state, dueTime, period);
-            timerCreated.TrySetResult();
+            lock (gate)
+            {
+                timerCount++;
+                foreach (var (count, waiter) in timerWaiters.Where(waiter => waiter.Count <= timerCount).ToArray())
+                {
+                    waiter.TrySetResult();
+                }
+                timerWaiters.RemoveAll(waiter => waiter.Count <= timerCount);
+            }
             return timer;
         }
 
-        public Task WaitForTimerAsync() => timerCreated.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        public Task WaitForTimerAsync(int count = 1)
+        {
+            lock (gate)
+            {
+                if (timerCount >= count) return Task.CompletedTask;
+                var waiter = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                timerWaiters.Add((count, waiter));
+                return waiter.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+        }
         public void Advance(TimeSpan amount) => inner.Advance(amount);
     }
 
