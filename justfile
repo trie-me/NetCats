@@ -29,37 +29,4 @@ examples-wasm-run:
 examples-wasm-publish:
     dotnet publish examples/PurrfectSeat/src/PurrfectSeat.Wasm/PurrfectSeat.Wasm.csproj --configuration Release --disable-build-servers --verbosity minimal -m:1
 
-mutualgpu-test:
-    dotnet test examples/MutualGPU/NetCats.Examples.MutualGPU.slnx --disable-build-servers --verbosity minimal -m:1
-    node --test examples/MutualGPU/tests/frontend/*.test.mjs
-    npm test --prefix examples/MutualGPU/sdk/typescript
-
-# Executes the checked-in browser SDK integration module in real Chromium.
-# Provide MUTUALGPU_PROVIDER_KEY from the demo key file. The test directly uses
-# the SDK's provider enrollment mapping, but does not mint a key or open the
-# password-gated site enrollment flow.
-examples-test-webgpu-enrollment:
-    @test -n "${MUTUALGPU_PROVIDER_KEY:-}" || { echo "MUTUALGPU_PROVIDER_KEY is required." >&2; exit 2; }
-    MUTUALGPU_API_URL="${MUTUALGPU_API_URL:-https://mutualgpu.com}" MUTUALGPU_PROVIDER_KEY="$MUTUALGPU_PROVIDER_KEY" MUTUALGPU_BROWSER_EXECUTABLE="${MUTUALGPU_BROWSER_EXECUTABLE:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node --test examples/MutualGPU/sdk/typescript/integration/browser-wss-enrollment.test.mjs
-
-# Executes a real Chromium fetch from the hosted Hugging Face Space to the public
-# API with credentials: include. Override MUTUALGPU_CORS_TEST_ORIGIN for another
-# explicitly allowed provider origin.
-examples-test-cross-origin-cors:
-    MUTUALGPU_API_URL="${MUTUALGPU_API_URL:-https://mutualgpu.com}" MUTUALGPU_CORS_TEST_ORIGIN="${MUTUALGPU_CORS_TEST_ORIGIN:-https://yosun-triposplat-webgpu-demo.static.hf.space}" MUTUALGPU_BROWSER_EXECUTABLE="${MUTUALGPU_BROWSER_EXECUTABLE:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node --test examples/MutualGPU/sdk/typescript/integration/browser-cross-origin-cors.test.mjs
-
-# Required after deploying the API build paired with an SDK release. Runs every
-# SDK test plus the hosted cross-origin requestor checks in real Chromium.
-examples-test-sdk-release-gate:
-    MUTUALGPU_API_URL="${MUTUALGPU_API_URL:-https://mutualgpu.com}" MUTUALGPU_CORS_TEST_ORIGIN="${MUTUALGPU_CORS_TEST_ORIGIN:-https://yosun-triposplat-webgpu-demo.static.hf.space}" MUTUALGPU_BROWSER_EXECUTABLE="${MUTUALGPU_BROWSER_EXECUTABLE:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" npm run test:release-gate --prefix examples/MutualGPU/sdk/typescript
-
-mutualgpu-dev-cert:
-    dotnet dev-certs https --trust
-
-mutualgpu-local-smoke:
-    ./examples/MutualGPU/scripts/run-local-composition.sh smoke
-
-mutualgpu-local-demo:
-    ./examples/MutualGPU/scripts/run-local-composition.sh demo
-
 check: build test examples-build examples-test examples-wasm-build

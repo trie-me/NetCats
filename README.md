@@ -120,7 +120,7 @@ The [testing guide](docs/07-testing-guide.md) explains what belongs at each laye
 - [PurrfectSeat.com implementation specification](docs/05-purrfectseat-example-implementation.md)
 - [Development guide](docs/06-development-guide.md)
 - [Testing guide](docs/07-testing-guide.md)
-- [MutualGPU Node.js and Chrome provider SDK](docs/sdk/README.md)
+- [MutualGPU distributed WebGPU work exchange](https://github.com/trie-me/MutualGPU)
 - [Architecture decisions](docs/adr/)
 
 ## License
